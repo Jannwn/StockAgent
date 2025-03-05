@@ -1,6 +1,7 @@
 import os
 import time
-from google import genai
+import requests
+import json
 from dotenv import load_dotenv
 from dataclasses import dataclass
 import backoff
@@ -40,6 +41,7 @@ else:
 # 验证环境变量
 api_key = os.getenv("GEMINI_API_KEY")
 model = os.getenv("GEMINI_MODEL")
+base_url = os.getenv("GEMINI_BASE_URL")
 
 if not api_key:
     logger.error(f"{ERROR_ICON} 未找到 GEMINI_API_KEY 环境变量")
@@ -47,10 +49,6 @@ if not api_key:
 if not model:
     model = "gemini-1.5-flash"
     logger.info(f"{WAIT_ICON} 使用默认模型: {model}")
-
-# 初始化 Gemini 客户端
-client = genai.Client(api_key=api_key)
-logger.info(f"{SUCCESS_ICON} Gemini 客户端初始化成功")
 
 
 @backoff.on_exception(
@@ -63,31 +61,58 @@ logger.info(f"{SUCCESS_ICON} Gemini 客户端初始化成功")
 def generate_content_with_retry(model, contents, config=None):
     """带重试机制的内容生成函数"""
     try:
-        logger.info(f"{WAIT_ICON} 正在调用 Gemini API...")
-        logger.debug(f"请求内容: {contents}")
-        logger.debug(f"请求配置: {config}")
+            logger.info(f"{WAIT_ICON} Calling XiaoAI API...")
+            logger.debug(f"Request content: {contents}")
 
-        response = client.models.generate_content(
-            model=model,
-            contents=contents,
-            config=config
-        )
+            data = {
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "你是一个顶尖的股票分析师"  # 系统消息
+                    },
+                    {
+                        "role": "user",
+                        "content": contents  # 用户消息
+                    }
+                ],
+                "stream": False,  # 是否流式返回
+                "model": model,  # 模型名称
+                "temperature":  0.5,  # 温度参数
+                "presence_penalty": 0,  # 存在惩罚
+                "frequency_penalty":0,  # 频率惩罚
+                "top_p":1  # Top-p 采样
+            }
+            headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            }
 
-        logger.info(f"{SUCCESS_ICON} API 调用成功")
-        logger.debug(f"响应内容: {response.text[:500]}...")
-        return response
+            response = requests.post(base_url, headers=headers, json=data)
+            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+
+
+            try:
+                logger.info(f"{SUCCESS_ICON} API call successful")
+                logger.debug(f"Response: {response.text[:500]}...")
+                return response
+            except json.JSONDecodeError:
+                logger.error(f"{ERROR_ICON} 无法解析 JSON 响应: {response.text}")
+                raise
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"{ERROR_ICON} API request failed: {e}")
+        raise
+    except json.JSONDecodeError as e:
+        logger.error(f"{ERROR_ICON} Invalid JSON response: {e}")
+        raise
     except Exception as e:
-        if "AFC is enabled" in str(e):
-            logger.warning(f"{ERROR_ICON} 触发 API 限制，等待重试... 错误: {str(e)}")
-            time.sleep(5)
-            raise e
-        logger.error(f"{ERROR_ICON} API 调用失败: {str(e)}")
-        logger.error(f"错误详情: {str(e)}")
-        raise e
+        logger.error(f"{ERROR_ICON} An unexpected error occurred: {e}")
+        raise
 
 
-def get_chat_completion(messages, model=None, max_retries=3, initial_retry_delay=1):
-    """获取聊天完成结果，包含重试逻辑"""
+
+def get_chat_completion(messages, model=None, max_retries=2, initial_retry_delay=1):
+    """Gets chat completion results, including retry logic."""
     try:
         if model is None:
             model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")

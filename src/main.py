@@ -15,9 +15,11 @@ from langgraph.graph import END, StateGraph
 from langchain_core.messages import HumanMessage
 import akshare as ak
 import pandas as pd
-
-from utils.output_logger import OutputLogger
+#poetry run python -m src.main --ticker 000001 --show-reasoning
 import sys
+sys.path.append("E:\5 Code\StockAgent\src")
+
+from .utils.output_logger import OutputLogger
 
 # Initialize output logging
 # This will create a timestamped log file in the logs directory
