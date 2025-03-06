@@ -14,7 +14,7 @@ def get_financial_metrics(symbol: str) -> Dict[str, Any]:
     """获取财务指标数据"""
     logger.info(f"Getting financial indicators for {symbol}...")
     try:
-        # 获取实时行情数据（用于市值和估值比率）
+        # 获取实时行情数据(用于市值和估值比率)
         logger.info("Fetching real-time quotes...")
         realtime_data = ak.stock_zh_a_spot_em()
         if realtime_data is None or realtime_data.empty:
@@ -47,7 +47,7 @@ def get_financial_metrics(symbol: str) -> Dict[str, Any]:
             f"✓ Financial indicators fetched ({len(financial_data)} records)")
         logger.info(f"Latest data date: {latest_financial.get('日期')}")
 
-        # 获取利润表数据（用于计算 price_to_sales）
+        # 获取利润表数据(用于计算 price_to_sales)
         logger.info("Fetching income statement...")
         try:
             income_statement = ak.stock_financial_report_sina(
@@ -129,12 +129,12 @@ def get_financial_metrics(symbol: str) -> Dict[str, Any]:
 
             logger.info("✓ Indicators built successfully")
 
-            # 打印所有获取到的指标数据（用于调试）
-            logger.debug("\n获取到的完整指标数据：")
+            # 打印所有获取到的指标数据(用于调试)
+            logger.debug("\n获取到的完整指标数据:")
             for key, value in all_metrics.items():
                 logger.debug(f"{key}: {value}")
 
-            logger.debug("\n传递给 agent 的指标数据：")
+            logger.debug("\n传递给 agent 的指标数据:")
             for key, value in agent_metrics.items():
                 logger.debug(f"{key}: {value}")
 
@@ -289,7 +289,7 @@ def get_market_data(symbol: str) -> Dict[str, Any]:
         return {
             "market_cap": float(stock_data.get("总市值", 0)),
             "volume": float(stock_data.get("成交量", 0)),
-            # A股没有平均成交量，暂用当日成交量
+            # A股没有平均成交量,暂用当日成交量
             "average_volume": float(stock_data.get("成交量", 0)),
             "fifty_two_week_high": float(stock_data.get("52周最高", 0)),
             "fifty_two_week_low": float(stock_data.get("52周最低", 0))
@@ -305,28 +305,28 @@ def get_price_history(symbol: str, start_date: str = None, end_date: str = None,
 
     Args:
         symbol: 股票代码
-        start_date: 开始日期，格式：YYYY-MM-DD，如果为None则默认获取过去一年的数据
-        end_date: 结束日期，格式：YYYY-MM-DD，如果为None则使用昨天作为结束日期
-        adjust: 复权类型，可选值：
+        start_date: 开始日期,格式:YYYY-MM-DD,如果为None则默认获取过去一年的数据
+        end_date: 结束日期,格式:YYYY-MM-DD,如果为None则使用昨天作为结束日期
+        adjust: 复权类型,可选值:
                - "": 不复权
-               - "qfq": 前复权（默认）
+               - "qfq": 前复权(默认)
                - "hfq": 后复权
 
     Returns:
-        包含以下列的DataFrame：
+        包含以下列的DataFrame:
         - date: 日期
         - open: 开盘价
         - high: 最高价
         - low: 最低价
         - close: 收盘价
-        - volume: 成交量（手）
-        - amount: 成交额（元）
-        - amplitude: 振幅（%）
-        - pct_change: 涨跌幅（%）
-        - change_amount: 涨跌额（元）
-        - turnover: 换手率（%）
+        - volume: 成交量(手)
+        - amount: 成交额(元)
+        - amplitude: 振幅(%)
+        - pct_change: 涨跌幅(%)
+        - change_amount: 涨跌额(元)
+        - turnover: 换手率(%)
 
-        技术指标：
+        技术指标:
         - momentum_1m: 1个月动量
         - momentum_3m: 3个月动量
         - momentum_6m: 6个月动量
@@ -344,7 +344,7 @@ def get_price_history(symbol: str, start_date: str = None, end_date: str = None,
         current_date = datetime.now()
         yesterday = current_date - timedelta(days=1)
 
-        # 如果没有提供日期，默认使用昨天作为结束日期
+        # 如果没有提供日期,默认使用昨天作为结束日期
         if not end_date:
             end_date = yesterday  # 使用昨天作为结束日期
         else:
@@ -363,7 +363,7 @@ def get_price_history(symbol: str, start_date: str = None, end_date: str = None,
         logger.info(f"End date: {end_date.strftime('%Y-%m-%d')}")
 
         def get_and_process_data(start_date, end_date):
-            """获取并处理数据，包括重命名列等操作"""
+            """获取并处理数据,包括重命名列等操作"""
             df = ak.stock_zh_a_hist(
                 symbol=symbol,
                 period="daily",
@@ -423,7 +423,7 @@ def get_price_history(symbol: str, start_date: str = None, end_date: str = None,
         df["momentum_6m"] = df["close"].pct_change(
             periods=120)  # 120个交易日约等于6个月
 
-        # 计算成交量动量（相对于20日平均成交量的变化）
+        # 计算成交量动量(相对于20日平均成交量的变化)
         df["volume_ma20"] = df["volume"].rolling(window=20).mean()
         df["volume_momentum"] = df["volume"] / df["volume_ma20"]
 
@@ -469,7 +469,7 @@ def get_price_history(symbol: str, start_date: str = None, end_date: str = None,
                 series: 价格序列
 
             Returns:
-                float: Hurst指数，或在计算失败时返回np.nan
+                float: Hurst指数,或在计算失败时返回np.nan
             """
             try:
                 series = series.dropna()
@@ -597,8 +597,8 @@ def get_price_data(
 
     Args:
         ticker: 股票代码
-        start_date: 开始日期，格式：YYYY-MM-DD
-        end_date: 结束日期，格式：YYYY-MM-DD
+        start_date: 开始日期,格式:YYYY-MM-DD
+        end_date: 结束日期,格式:YYYY-MM-DD
 
     Returns:
         包含价格数据的DataFrame

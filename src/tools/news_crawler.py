@@ -10,7 +10,7 @@ import time
 import pandas as pd
 import re
 
-
+#问题在于捕获的信息和股价相关性过强,如股价上涨在其他信息中也能体现,应加入宏观新闻等.
 
 def get_stock_news(symbol: str, max_news: int = 10) -> list:
     """获取并处理个股新闻
