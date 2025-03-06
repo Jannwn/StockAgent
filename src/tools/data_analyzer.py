@@ -6,12 +6,12 @@ from src.tools.api import get_price_history
 
 def analyze_stock_data(symbol: str, start_date: str = None, end_date: str = None):
     """
-    获取股票历史数据，计算技术指标，并保存为CSV文件
+    获取股票历史数据,计算技术指标,并保存为CSV文件
 
     Args:
         symbol: 股票代码
-        start_date: 开始日期，格式：YYYY-MM-DD
-        end_date: 结束日期，格式：YYYY-MM-DD
+        start_date: 开始日期,格式:YYYY-MM-DD
+        end_date: 结束日期,格式:YYYY-MM-DD
     """
     # 获取历史数据
     df = get_price_history(symbol, start_date, end_date)
