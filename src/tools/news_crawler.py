@@ -8,20 +8,22 @@ from bs4 import BeautifulSoup
 from src.tools.openrouter_config import get_chat_completion, logger as api_logger
 import time
 import pandas as pd
+import re
+
 
 
 def get_stock_news(symbol: str, max_news: int = 10) -> list:
     """获取并处理个股新闻
 
     Args:
-        symbol (str): 股票代码，如 "300059"
-        max_news (int, optional): 获取的新闻条数，默认为10条。最大支持100条。
+        symbol (str): 股票代码,如 "300059"
+        max_news (int, optional): 获取的新闻条数,默认为10条.最大支持100条.
 
     Returns:
-        list: 新闻列表，每条新闻包含标题、内容、发布时间等信息
+        list: 新闻列表,每条新闻包含标题、内容、发布时间等信息
     """
 
-    # 设置pandas显示选项，确保显示完整内容
+    # 设置pandas显示选项,确保显示完整内容
     pd.set_option('display.max_columns', None)
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_colwidth', None)
@@ -63,7 +65,7 @@ def get_stock_news(symbol: str, max_news: int = 10) -> list:
                         return cached_news[:max_news]
                     else:
                         print(
-                            f"缓存的新闻数量({len(cached_news)})不足，需要获取更多新闻({max_news}条)")
+                            f"缓存的新闻数量({len(cached_news)})不足,需要获取更多新闻({max_news}条)")
         except Exception as e:
             print(f"读取缓存文件失败: {e}")
 
@@ -81,10 +83,10 @@ def get_stock_news(symbol: str, max_news: int = 10) -> list:
         # 实际可获取的新闻数量
         available_news_count = len(news_df)
         if available_news_count < max_news:
-            print(f"警告：实际可获取的新闻数量({available_news_count})少于请求的数量({max_news})")
+            print(f"警告:实际可获取的新闻数量({available_news_count})少于请求的数量({max_news})")
             max_news = available_news_count
 
-        # 获取指定条数的新闻（考虑到可能有些新闻内容为空，多获取50%）
+        # 获取指定条数的新闻(考虑到可能有些新闻内容为空,多获取50%)
         news_list = []
         for _, row in news_df.head(int(max_news * 1.5)).iterrows():
             try:
@@ -144,15 +146,15 @@ def get_stock_news(symbol: str, max_news: int = 10) -> list:
         return []
 
 
-def get_news_sentiment(news_list: list, num_of_news: int = 5) -> float:
+def get_news_sentiment(symbol,news_list: list, num_of_news: int = 5) -> float:
     """分析新闻情感得分
 
     Args:
         news_list (list): 新闻列表
-        num_of_news (int): 用于分析的新闻数量，默认为5条
+        num_of_news (int): 用于分析的新闻数量,默认为5条
 
     Returns:
-        float: 情感得分，范围[-1, 1]，-1最消极，1最积极
+        float: 情感得分,范围[-1, 1],-1最消极,1最积极
     """
     if not news_list:
         return 0.0
@@ -186,31 +188,31 @@ def get_news_sentiment(news_list: list, num_of_news: int = 5) -> float:
             print(f"读取情感分析缓存出错: {e}")
             cache = {}
     else:
-        print("未找到情感分析缓存文件，将创建新文件")
+        print("未找到情感分析缓存文件,将创建新文件")
         cache = {}
 
     # 准备系统消息
     system_message = {
         "role": "system",
-        "content": """你是一个专业的A股市场分析师，擅长解读新闻对股票走势的影响。你需要分析一组新闻的情感倾向，并给出一个介于-1到1之间的分数：
-        - 1表示极其积极（例如：重大利好消息、超预期业绩、行业政策支持）
-        - 0.5到0.9表示积极（例如：业绩增长、新项目落地、获得订单）
-        - 0.1到0.4表示轻微积极（例如：小额合同签订、日常经营正常）
-        - 0表示中性（例如：日常公告、人事变动、无重大影响的新闻）
-        - -0.1到-0.4表示轻微消极（例如：小额诉讼、非核心业务亏损）
-        - -0.5到-0.9表示消极（例如：业绩下滑、重要客户流失、行业政策收紧）
-        - -1表示极其消极（例如：重大违规、核心业务严重亏损、被监管处罚）
+        "content": """你是一个专业的A股市场分析师,擅长解读新闻对股票走势的影响.你需要分析一组新闻的情感倾向,并给出一个介于-1到1之间的分数:
+        - 1表示极其积极(例如:重大利好消息、超预期业绩、行业政策支持)
+        - 0.5到0.9表示积极(例如:业绩增长、新项目落地、获得订单)
+        - 0.1到0.4表示轻微积极(例如:小额合同签订、日常经营正常)
+        - 0表示中性(例如:日常公告、人事变动、无重大影响的新闻)
+        - -0.1到-0.4表示轻微消极(例如:小额诉讼、非核心业务亏损)
+        - -0.5到-0.9表示消极(例如:业绩下滑、重要客户流失、行业政策收紧)
+        - -1表示极其消极(例如:重大违规、核心业务严重亏损、被监管处罚)
 
-        分析时重点关注：
-        1. 业绩相关：财报、业绩预告、营收利润等
-        2. 政策影响：行业政策、监管政策、地方政策等
-        3. 市场表现：市场份额、竞争态势、商业模式等
-        4. 资本运作：并购重组、股权激励、定增配股等
-        5. 风险事件：诉讼仲裁、处罚、债务等
-        6. 行业地位：技术创新、专利、市占率等
-        7. 舆论环境：媒体评价、社会影响等
+        分析时重点关注:
+        1. 业绩相关:财报、业绩预告、营收利润等
+        2. 政策影响:行业政策、监管政策、地方政策等
+        3. 市场表现:市场份额、竞争态势、商业模式等
+        4. 资本运作:并购重组、股权激励、定增配股等
+        5. 风险事件:诉讼仲裁、处罚、债务等
+        6. 行业地位:技术创新、专利、市占率等
+        7. 舆论环境:媒体评价、社会影响等
 
-        请确保分析：
+        请确保分析:
         1. 新闻的真实性和可靠性
         2. 新闻的时效性和影响范围
         3. 对公司基本面的实际影响
@@ -219,16 +221,16 @@ def get_news_sentiment(news_list: list, num_of_news: int = 5) -> float:
 
     # 准备新闻内容
     news_content = "\n\n".join([
-        f"标题：{news['title']}\n"
-        f"来源：{news['source']}\n"
-        f"时间：{news['publish_time']}\n"
-        f"内容：{news['content']}"
+        f"标题:{news['title']}\n"
+        f"来源:{news['source']}\n"
+        f"时间:{news['publish_time']}\n"
+        f"内容:{news['content']}"
         for news in news_list[:num_of_news]  # 使用指定数量的新闻
     ])
 
     user_message = {
-        "role": "user",
-        "content": f"请分析以下A股上市公司相关新闻的情感倾向：\n\n{news_content}\n\n请直接返回一个数字，范围是-1到1，无需解释。"
+        "role": "user", #prompt
+        "content": f"你是一个专业的股票分析师,尤其擅长分析新闻情绪.分析以下A股上市公司{symbol}相关新闻,计算对该公司的股票的情感倾向:\n\n{news_content}\n\n首先返回一个对情感倾向打分的数字,范围是-1到1,越接近1证明情感越积极,记作“情感:”.之后,结合你所获得的新闻报道,用1000字分点列出做出该判断的理由,要求有理有据且表述明确,不要用模糊的词汇,做出你觉得最可能的判断记作“原因:”."
     }
 
     try:
@@ -239,8 +241,20 @@ def get_news_sentiment(news_list: list, num_of_news: int = 5) -> float:
             return 0.0
 
         # 提取数字结果
+        result_dict = json.loads(result)
         try:
-            sentiment_score = float(result.strip())
+            content_value = result_dict['choices'][0]['message']['content']
+            print(f"LLM返回的结果: {content_value}")    
+            match = re.search(r'情感:.*?(\d+\.?\d*)', content_value)
+            if match:
+                # 提取匹配到的数字字符串
+                sentiment_str = match.group(1)
+                try:
+                    sentiment_score = float(sentiment_str)
+                except ValueError:
+                    print("错误:无法将字符串转换为数字.字符串格式可能不正确.")
+            else:
+                print("错误:未找到 “情感:” 相关的内容.")   
         except ValueError as e:
             print(f"Error parsing sentiment score: {e}")
             print(f"Raw result: {result}")

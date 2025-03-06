@@ -27,7 +27,7 @@ def sentiment_agent(state: AgentState):
     recent_news = [news for news in news_list
                    if datetime.strptime(news['publish_time'], '%Y-%m-%d %H:%M:%S') > cutoff_date]
 
-    sentiment_score = get_news_sentiment(recent_news, num_of_news=num_of_news)
+    sentiment_score = get_news_sentiment(symbol,recent_news, num_of_news=num_of_news)
 
     # 根据情感分数生成交易信号和置信度
     if sentiment_score >= 0.5:
