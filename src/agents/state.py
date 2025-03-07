@@ -20,7 +20,6 @@ class AgentState(TypedDict):
     data: Annotated[Dict[str, Any], merge_dicts]
     metadata: Annotated[Dict[str, Any], merge_dicts]
 
-
 def show_workflow_status(agent_name: str, status: str = "processing"):
     """Display agent workflow status in a clean format.
 

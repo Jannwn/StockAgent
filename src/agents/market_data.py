@@ -38,54 +38,60 @@ def market_data_agent(state: AgentState):
         start_date = data["start_date"]
 
     # Get all required data
-    ticker = data["ticker"]
+    ticker_list = data["ticker_list"]
 
     # 获取价格数据并验证
-    prices_df = get_price_history(ticker, start_date, end_date)
-    if prices_df is None or prices_df.empty:
-        logger.warning(f"警告：无法获取{ticker}的价格数据，将使用空数据继续")
-        prices_df = pd.DataFrame(
-            columns=['close', 'open', 'high', 'low', 'volume'])
+    financial_metrics_dict={}
+    financial_line_items_dict={}
+    prices_df_dict={}
+    market_data_dict={}
+    market_cap_dict={}
+    for ticker in ticker_list:
+        prices_df = get_price_history(ticker, start_date, end_date)
+        if prices_df is None or prices_df.empty:
+            logger.warning(f"警告：无法获取{ticker}的价格数据，将使用空数据继续")
+            prices_df = pd.DataFrame(
+                columns=['close', 'open', 'high', 'low', 'volume'])
+        if not isinstance(prices_df, pd.DataFrame):
+            prices_df = pd.DataFrame(
+                columns=['close', 'open', 'high', 'low', 'volume'])
+        prices_dict = prices_df.to_dict(ticker)
+        prices_df_dict[ticker] = prices_dict 
+        
+        # 获取财务指标
+        try:
+            financial_metrics = get_financial_metrics(ticker)
+        except Exception as e:
+            logger.error(f"获取财务指标失败: {str(e)}")
+            financial_metrics = {}
+        financial_metrics_dict[ticker] = financial_metrics
 
-    # 获取财务指标
-    try:
-        financial_metrics = get_financial_metrics(ticker)
-    except Exception as e:
-        logger.error(f"获取财务指标失败: {str(e)}")
-        financial_metrics = {}
-
-    # 获取财务报表
-    try:
-        financial_line_items = get_financial_statements(ticker)
-    except Exception as e:
-        logger.error(f"获取财务报表失败: {str(e)}")
-        financial_line_items = {}
-
-    # 获取市场数据
-    try:
-        market_data = get_market_data(ticker)
-    except Exception as e:
-        logger.error(f"获取市场数据失败: {str(e)}")
-        market_data = {"market_cap": 0}
-
-    # 确保数据格式正确
-    if not isinstance(prices_df, pd.DataFrame):
-        prices_df = pd.DataFrame(
-            columns=['close', 'open', 'high', 'low', 'volume'])
-
-    # 转换价格数据为字典格式
-    prices_dict = prices_df.to_dict('records')
+        # 获取财务报表
+        try:
+            financial_line_items = get_financial_statements(ticker)
+        except Exception as e:
+            logger.error(f"获取财务报表失败: {str(e)}")
+            financial_line_items = {}
+        financial_line_items_dict[ticker] = financial_line_items
+        # 获取市场数据
+        try:
+            market_data = get_market_data(ticker)
+        except Exception as e:
+            logger.error(f"获取市场数据失败: {str(e)}")
+            market_data = {"market_cap": 0}
+        market_data_dict[ticker] = market_data
+        market_cap_dict[ticker] = market_data.get("market_cap", 0)
 
     return {
         "messages": messages,
         "data": {
             **data,
-            "prices": prices_dict,
+            "prices": prices_df_dict,
             "start_date": start_date,
             "end_date": end_date,
-            "financial_metrics": financial_metrics,
-            "financial_line_items": financial_line_items,
-            "market_cap": market_data.get("market_cap", 0),
-            "market_data": market_data,
+            "financial_metrics": financial_metrics_dict,
+            "financial_line_items": financial_line_items_dict,
+            "market_cap": market_cap_dict,
+            "market_data": market_data_dict,
         }
     }

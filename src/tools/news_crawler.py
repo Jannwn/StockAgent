@@ -146,17 +146,18 @@ def get_stock_news(symbol: str, max_news: int = 10) -> list:
         return []
 
 
-def get_news_sentiment(symbol,news_list: list, num_of_news: int = 5) -> float:
+def get_news_sentiment(symbol_list,news_dict: dict, num_of_news: int = 10) -> float:
     """分析新闻情感得分
 
     Args:
-        news_list (list): 新闻列表
-        num_of_news (int): 用于分析的新闻数量,默认为5条
+        news_dict (list): 新闻字典,包含多个股票的新闻列表
+        symbol_list (str): 股票代码列表,如 "300059"
+        num_of_news (int): 用于分析的新闻数量,默认为10条
 
     Returns:
         float: 情感得分,范围[-1, 1],-1最消极,1最积极
     """
-    if not news_list:
+    if not news_dict:
         return 0.0
 
     # # 获取项目根目录
@@ -170,8 +171,9 @@ def get_news_sentiment(symbol,news_list: list, num_of_news: int = 5) -> float:
 
     # 生成新闻内容的唯一标识
     news_key = "|".join([
-        f"{news['title']}|{news['content'][:100]}|{news['publish_time']}"
-        for news in news_list[:num_of_news]
+        f"{symbol}|{news['title']}|{news['content'][:100]}|{news['publish_time']}"
+        for symbol, news_list in news_dict.items() 
+        for news in news_list[:num_of_news]  
     ])
 
     # 检查缓存
@@ -194,7 +196,7 @@ def get_news_sentiment(symbol,news_list: list, num_of_news: int = 5) -> float:
     # 准备系统消息
     system_message = {
         "role": "system",
-        "content": """你是一个专业的A股市场分析师,擅长解读新闻对股票走势的影响.你需要分析一组新闻的情感倾向,并给出一个介于-1到1之间的分数:
+        "content": """你是一个专业的A股市场分析师,擅长解读新闻对股票走势的影响.你需要分析关于一组股票的新闻的情感倾向,并针对每个股票给出介于-1到1之间的分数:
         - 1表示极其积极(例如:重大利好消息、超预期业绩、行业政策支持)
         - 0.5到0.9表示积极(例如:业绩增长、新项目落地、获得订单)
         - 0.1到0.4表示轻微积极(例如:小额合同签订、日常经营正常)
@@ -221,16 +223,24 @@ def get_news_sentiment(symbol,news_list: list, num_of_news: int = 5) -> float:
 
     # 准备新闻内容
     news_content = "\n\n".join([
+        f"相关股票:{symbol}\n"
         f"标题:{news['title']}\n"
         f"来源:{news['source']}\n"
         f"时间:{news['publish_time']}\n"
         f"内容:{news['content']}"
+        for symbol, news_list in news_dict.items()  # 遍历所有股票
         for news in news_list[:num_of_news]  # 使用指定数量的新闻
     ])
 
     user_message = {
         "role": "user", #prompt
-        "content": f"你是一个专业的股票分析师,尤其擅长分析新闻情绪.分析以下A股上市公司{symbol}相关新闻,计算对该公司的股票的情感倾向:\n\n{news_content}\n\n首先返回一个对情感倾向打分的数字,范围是-1到1,越接近1证明情感越积极,记作“情感:”.之后,结合你所获得的新闻报道,用1000字分点列出做出该判断的理由,要求有理有据且表述明确,不要用模糊的词汇,做出你觉得最可能的判断记作“原因:”."
+        "content": f"""
+        分析以下A股上市公司{symbol_list}相关新闻,对比并计算每只的股票的情感倾向:\n\n{news_content}\n\n
+        使用股票情绪、交易理论等专业知识,避免模糊的回答，用词专业.
+        首先返回一列对情感倾向打分的数字,范围是-1到1,越接近1证明情感越积极,记作"情感:[,,,]".
+        之后,结合你所获得的新闻报道,用1000字分点列出做出该判断的理由,要求有理有据且表述明确,不要用模糊的词汇,
+        做出你觉得最可能的判断记作"原因:".
+        """
     }
 
     try:
@@ -245,12 +255,14 @@ def get_news_sentiment(symbol,news_list: list, num_of_news: int = 5) -> float:
         try:
             content_value = result_dict['choices'][0]['message']['content']
             print(f"LLM返回的结果: {content_value}")    
-            match = re.search(r'情感:.*?(\d+\.?\d*)', content_value)
+            match = re.search(r'情感:\s*\[(.*?)\]', content_value)
+            match_r = re.search(r'原因:\s*(.*)', content_value)
             if match:
                 # 提取匹配到的数字字符串
                 sentiment_str = match.group(1)
+                sentiment_reason=match_r.group(1)
                 try:
-                    sentiment_score = float(sentiment_str)
+                    sentiment_score_list = [float(num.strip()) for num in sentiment_str]
                 except ValueError:
                     print("错误:无法将字符串转换为数字.字符串格式可能不正确.")
             else:
@@ -261,17 +273,18 @@ def get_news_sentiment(symbol,news_list: list, num_of_news: int = 5) -> float:
             return 0.0
 
         # 确保分数在-1到1之间
-        sentiment_score = max(-1.0, min(1.0, sentiment_score))
+        for sent in sentiment_score_list:
+            sent = max(-1.0, min(1.0, sent))
 
         # 缓存结果
-        cache[news_key] = sentiment_score
+        cache[news_key] = sentiment_score_list,sentiment_reason
         try:
             with open(cache_file, 'w', encoding='utf-8') as f:
                 json.dump(cache, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"Error writing cache: {e}")
 
-        return sentiment_score
+        return sentiment_score_list,sentiment_reason
 
     except Exception as e:
         print(f"Error analyzing news sentiment: {e}")

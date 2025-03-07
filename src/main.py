@@ -15,8 +15,10 @@ from langgraph.graph import END, StateGraph
 from langchain_core.messages import HumanMessage
 import akshare as ak
 import pandas as pd
-#poetry run python -m src.main --ticker 000001 --show-reasoning
+#poetry run python -m src.main --ticker_list "['000001','300059','002261']" --show-reasoning
 import sys
+import argparse
+import ast
 sys.path.append("E:\5 Code\StockAgent\src")
 
 from .utils.output_logger import OutputLogger
@@ -25,9 +27,22 @@ from .utils.output_logger import OutputLogger
 # This will create a timestamped log file in the logs directory
 sys.stdout = OutputLogger()
 
-
+def parse_ticker_list(ticker_str: str) -> list:
+    # 处理输入字符串，确保它是一个有效的列表
+    try:
+        # 去掉外部的方括号并分割字符串
+        if ticker_str.startswith('[') and ticker_str.endswith(']'):
+            ticker_list = ticker_str.strip('[]').split(',')
+            # 去掉每个元素的空格
+            ticker_list = [ticker.strip() for ticker in ticker_list]
+            return ticker_list
+        else:
+            raise ValueError("Input must be in the format [symbol1, symbol2, ...]")
+    except Exception as e:
+        raise ValueError(f"Invalid input format: {e}")
+    
 ##### Run the Hedge Fund #####
-def run_hedge_fund(ticker: str, start_date: str, end_date: str, portfolio: dict, show_reasoning: bool = False, num_of_news: int = 5):
+def run_hedge_fund(ticker_list: list, start_date: str, end_date: str, portfolio: dict, show_reasoning: bool = False, num_of_news: int = 5):
     final_state = app.invoke(
         {
             "messages": [
@@ -36,7 +51,7 @@ def run_hedge_fund(ticker: str, start_date: str, end_date: str, portfolio: dict,
                 )
             ],
             "data": {
-                "ticker": ticker,
+                "ticker_list": ticker_list,
                 "portfolio": portfolio,
                 "start_date": start_date,
                 "end_date": end_date,
@@ -102,8 +117,8 @@ app = workflow.compile()
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Run the hedge fund trading system')
-    parser.add_argument('--ticker', type=str, required=True,
-                        help='Stock ticker symbol')
+    parser.add_argument('--ticker_list', type=parse_ticker_list, required=True,
+                        help='Stock ticker list symbols in the format[,,,]')
     parser.add_argument('--start-date', type=str,
                         help='Start date (YYYY-MM-DD). Defaults to 1 year before end date')
     parser.add_argument('--end-date', type=str,
@@ -148,7 +163,7 @@ if __name__ == "__main__":
     }
 
     result = run_hedge_fund(
-        ticker=args.ticker,
+        ticker_list=args.ticker_list,
         start_date=start_date.strftime('%Y-%m-%d'),
         end_date=end_date.strftime('%Y-%m-%d'),
         portfolio=portfolio,
@@ -157,52 +172,3 @@ if __name__ == "__main__":
     )
     print("\nFinal Result:")
     print(result)
-
-
-def get_historical_data(symbol: str) -> pd.DataFrame:
-    """Get historical market data for a given stock symbol.
-    If we can't get the full year of data, use whatever is available."""
-    # Calculate date range
-    current_date = datetime.now()
-    yesterday = current_date - timedelta(days=1)
-    end_date = yesterday  # Use yesterday as end date
-    target_start_date = yesterday - \
-        timedelta(days=365)  # Target: 1 year of data
-
-    print(f"\n正在获取 {symbol} 的历史行情数据...")
-    print(f"目标开始日期：{target_start_date.strftime('%Y-%m-%d')}")
-    print(f"结束日期：{end_date.strftime('%Y-%m-%d')}")
-
-    try:
-        # Get historical data
-        df = ak.stock_zh_a_hist(symbol=symbol,
-                                period="daily",
-                                start_date=target_start_date.strftime(
-                                    "%Y%m%d"),
-                                end_date=end_date.strftime("%Y%m%d"),
-                                adjust="qfq")
-
-        actual_days = len(df)
-        target_days = 365  # Target: 1 year of data
-
-        if actual_days < target_days:
-            print(f"提示：实际获取到的数据天数({actual_days}天)少于目标天数({target_days}天)")
-            print(f"将使用可获取到的所有数据进行分析")
-
-        print(f"成功获取历史行情数据，共 {actual_days} 条记录\n")
-        return df
-
-    except Exception as e:
-        print(f"获取历史数据时发生错误: {str(e)}")
-        print("将尝试获取最近可用的数据...")
-
-        # Try to get whatever data is available
-        try:
-            df = ak.stock_zh_a_hist(symbol=symbol,
-                                    period="daily",
-                                    adjust="qfq")
-            print(f"成功获取历史行情数据，共 {len(df)} 条记录\n")
-            return df
-        except Exception as e:
-            print(f"获取历史数据失败: {str(e)}")
-            return pd.DataFrame()
