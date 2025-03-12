@@ -252,39 +252,9 @@ def get_news_sentiment(symbol_list,news_dict: dict, num_of_news: int = 10) -> fl
 
         # 提取数字结果
         result_dict = json.loads(result)
-        try:
-            content_value = result_dict['choices'][0]['message']['content']
-            print(f"LLM返回的结果: {content_value}")    
-            match = re.search(r'情感:\s*\[(.*?)\]', content_value)
-            match_r = re.search(r'原因:\s*(.*)', content_value)
-            if match:
-                # 提取匹配到的数字字符串
-                sentiment_str = match.group(1)
-                sentiment_reason=match_r.group(1)
-                try:
-                    sentiment_score_list = [float(num.strip()) for num in sentiment_str]
-                except ValueError:
-                    print("错误:无法将字符串转换为数字.字符串格式可能不正确.")
-            else:
-                print("错误:未找到 “情感:” 相关的内容.")   
-        except ValueError as e:
-            print(f"Error parsing sentiment score: {e}")
-            print(f"Raw result: {result}")
-            return 0.0
+        content_value = result_dict['choices'][0]['message']['content']
 
-        # 确保分数在-1到1之间
-        for sent in sentiment_score_list:
-            sent = max(-1.0, min(1.0, sent))
-
-        # 缓存结果
-        cache[news_key] = sentiment_score_list,sentiment_reason
-        try:
-            with open(cache_file, 'w', encoding='utf-8') as f:
-                json.dump(cache, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Error writing cache: {e}")
-
-        return sentiment_score_list,sentiment_reason
+        return {"sentiment_reason": content_value}
 
     except Exception as e:
         print(f"Error analyzing news sentiment: {e}")

@@ -15,7 +15,8 @@ from langgraph.graph import END, StateGraph
 from langchain_core.messages import HumanMessage
 import akshare as ak
 import pandas as pd
-#poetry run python -m src.main --ticker_list "['000001','300059','002261']" --show-reasoning
+#poetry run python -m src.main --ticker_list "[002155,600988,600489,600547,000975,300139]" --show-reasoning
+# poetry run python -m src.main --ticker_list "[000001,300059,002261]" --show-reasoning  
 import sys
 import argparse
 import ast

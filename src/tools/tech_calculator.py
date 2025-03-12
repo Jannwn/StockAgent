@@ -234,7 +234,7 @@ def calculate_stat_arb_signals(prices_df):
         }
     }
 
-def signals(prices_df,macd_line, signal_line, rsi, upper_band, lower_band, obv,obv_slope,price_drop):
+def cal_signals(prices_df,macd_line, signal_line, rsi, upper_band, lower_band, obv,obv_slope,price_drop):
     signals = []
     if macd_line.iloc[-2] < signal_line.iloc[-2] and macd_line.iloc[-1] > signal_line.iloc[-1]:
         signals.append('bullish')
@@ -276,7 +276,7 @@ def signals(prices_df,macd_line, signal_line, rsi, upper_band, lower_band, obv,o
         signals.append('bullish')
         confidence += 0.1
        
-        return signals
+    return signals
 
 
 

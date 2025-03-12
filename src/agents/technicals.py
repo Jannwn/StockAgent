@@ -6,6 +6,8 @@ from src.agents.state import AgentState, show_agent_reasoning, show_workflow_sta
 from src.tools.tech_calculator import calculate_macd, calculate_rsi, calculate_bollinger_bands, calculate_obv
 from src.tools.tech_calculator import calculate_trend_signals, calculate_mean_reversion_signals, calculate_momentum_signals
 from src.tools.tech_calculator import calculate_volatility_signals, calculate_stat_arb_signals, weighted_signal_combination,normalize_pandas
+from src.tools.tech_calculator import cal_signals
+from src.tools.tech_analyzer import get_tech_analyze
 import json
 
 from src.tools.api import prices_to_df
@@ -79,18 +81,21 @@ def technical_analyst_agent(state: AgentState):
     
     data = state["data"]
     prices_dict = data["prices"]
+    end_date = data["end_date"]
     report_dict={}
     # Create the technical analyst message
     for ticker,prices in prices_dict.items():
         analysis_report = calculate_signals(prices)
         report_dict[ticker]=analysis_report
+    message_text=get_tech_analyze(end_date,analysis_report,TEXT_SIGNAL,TEXT_STRATEGY)
     message = HumanMessage(
-        content=json.dumps(analysis_report,TEXT_SIGNAL),
+        content=json.dumps(message_text),
         name="technical_analyst_agent",
     )
 
     if show_reasoning:
-        show_agent_reasoning(analysis_report, "Technical Analyst")
+        show_agent_reasoning(
+            analysis_report, "Technical Analyst")
 
     show_workflow_status("Technical Analyst", "completed")
     return {
@@ -126,8 +131,8 @@ def calculate_signals(prices: Dict) -> Dict:
     price_drop = (prices_df['close'].iloc[-1] -
                   prices_df['close'].iloc[-5]) / prices_df['close'].iloc[-5]
     
-    signals = signals(prices_df,macd_line, signal_line, rsi, upper_band, lower_band, obv,obv_slope,price_drop)
-
+    signals = cal_signals(prices_df,macd_line, signal_line, rsi, upper_band, lower_band, obv,obv_slope,price_drop)
+    print(f'计算signals:{signals}')
     # Add reasoning collection
     reasoning = {
         "MACD": {
@@ -136,18 +141,18 @@ def calculate_signals(prices: Dict) -> Dict:
             "details": f"MACD Line crossed {'above' if signals[0] == 'bullish' else 'below' if signals[0] == 'bearish' else 'neither above nor below'} Signal Line"
         },
         "RSI": {
-            'RSI': rsi,
+            'RSI': rsi.iloc[-1],
             "signal": signals[1],
             "details": f"RSI is {rsi.iloc[-1]:.2f} ({'oversold' if signals[1] == 'bullish' else 'overbought' if signals[1] == 'bearish' else 'neutral'})"
         },
         "Bollinger": {
-            "Upper Band": upper_band,
-            "Lower Band": lower_band,
+            #"Upper Band": upper_band,
+            #"Lower Band": lower_band,
             "signal": signals[2],
             "details": f"Price is {'below lower band' if signals[2] == 'bullish' else 'above upper band' if signals[2] == 'bearish' else 'within bands'}"
         },
         "OBV": {
-            "OBV": obv,
+            #"OBV": obv,
             "OBV_slope": obv_slope,
             "signal": signals[3],
             "details": f"OBV slope is {obv_slope:.2f} ({signals[3]})"
@@ -203,6 +208,7 @@ def calculate_signals(prices: Dict) -> Dict:
     }, strategy_weights)
 
     analysis_report = {
+        "technical_analyze_message": message_content,
         "signal": combined_signal['signal'],
         "confidence": f"{round(combined_signal['confidence'] * 100)}%",
         "strategy_signals": {
@@ -234,5 +240,5 @@ def calculate_signals(prices: Dict) -> Dict:
             }
         }
     }
-
+    
     return analysis_report

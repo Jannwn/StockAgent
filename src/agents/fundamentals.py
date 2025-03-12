@@ -1,19 +1,71 @@
 from langchain_core.messages import HumanMessage
 
 from src.agents.state import AgentState, show_agent_reasoning, show_workflow_status
-
+from src.tools.fundamental_analyzer import get_fundmt_analyze
+from src.utils.logging_config import setup_logger
 import json
 
 ##### Fundamental Agent #####
+SIGNAL_TEXT='''
+1.Profitability Analysis (盈利能力分析):
+Return on Equity (ROE): 衡量公司利用股东投资产生利润的能力。阈值: 大于 15% 被视为强劲。
+Net Margin (净利润率): 衡量公司从总收入中获得的净利润比例。阈值: 大于 20% 被视为健康的利润率。
+Operating Margin (营业利润率): 衡量公司在扣除运营费用后的利润率。阈值: 大于 15% 被视为强劲的运营效率。
 
+2.Growth Analysis (增长分析):
+Revenue Growth (收入增长): 衡量公司收入的增长速度。阈值: 大于 10% 被视为良好的增长。
+Earnings Growth (盈利增长): 衡量公司盈利的增长速度。阈值: 大于 10% 被视为良好的增长。
+Book Value Growth (账面价值增长): 衡量公司账面价值的增长速度。阈值: 大于 10% 被视为良好的增长。
+
+3. Financial Health (财务健康):
+Current Ratio (流动比率): 衡量公司短期资产与短期负债的比率。阈值: 大于 1.5 被视为强劲的流动性。
+Debt to Equity Ratio (负债权益比): 衡量公司使用债务融资的程度。阈值: 小于 0.5 被视为保守的负债水平。
+Free Cash Flow per Share (每股自由现金流): 衡量公司每股产生的自由现金流。阈值: 自由现金流应大于每股收益的 80% 被视为强劲的现金流转换能力。
+
+4.Price to X Ratios (价格比率):
+Price to Earnings (P/E) Ratio (市盈率): 衡量公司股票价格与每股收益的比率。阈值: 小于 25 被视为合理。
+Price to Book (P/B) Ratio (市净率): 衡量公司股票价格与每股账面价值的比率。阈值: 小于 3 被视为合理。
+Price to Sales (P/S) Ratio (市销率): 衡量公司股票价格与每股销售额的比率。阈值: 小于 5 被视为合理。"
+'''
 
 def fundamentals_agent(state: AgentState):
     """Responsible for fundamental analysis"""
     show_workflow_status("Fundamentals Analyst")
     show_reasoning = state["metadata"]["show_reasoning"]
     data = state["data"]
-    metrics = data["financial_metrics"][0]
+    end_date = data["end_date"]
 
+    results={}
+    for ticker in data["ticker_list"]:
+        metrics = data["financial_metrics"][ticker][0]
+        results[ticker]=fundamental_analyse(metrics)
+
+    message_content = {
+        "results": results
+    }
+    message_text=get_fundmt_analyze(end_date,results,SIGNAL_TEXT)
+    # Create the fundamental analysis message
+    message = HumanMessage(
+        content=json.dumps(message_text),
+        name="fundamentals_agent",
+    )
+
+    # Print the reasoning if the flag is set
+    if show_reasoning:
+        show_agent_reasoning(message_content, "Fundamental Analysis Agent")
+
+    show_workflow_status("Fundamentals Analyst", "completed")
+    return {
+        "messages": [message],
+        "data": {
+            **data,
+            "fundamental_analysis": message_content
+        }
+    }
+
+
+
+def fundamental_analyse(metrics):
     # Initialize signals list for different fundamental aspects
     signals = []
     reasoning = {}
@@ -133,42 +185,19 @@ def fundamentals_agent(state: AgentState):
         )
     }
 
-    # Determine overall signal
-    bullish_signals = signals.count('bullish')
-    bearish_signals = signals.count('bearish')
-
-    if bullish_signals > bearish_signals:
-        overall_signal = 'bullish'
-    elif bearish_signals > bullish_signals:
-        overall_signal = 'bearish'
-    else:
-        overall_signal = 'neutral'
-
-    # Calculate confidence level
-    total_signals = len(signals)
-    confidence = max(bullish_signals, bearish_signals) / total_signals
-
-    message_content = {
-        "signal": overall_signal,
-        "confidence": f"{round(confidence * 100)}%",
-        "reasoning": reasoning
+    indicators = {
+        "Return on Equity (ROE)":return_on_equity, 
+        "net_margin":net_margin, 
+        "operating_margin":operating_margin,
+        "revenue_growth":revenue_growth, 
+        "earnings_growth":earnings_growth, 
+        "book_value_growth":book_value_growth,
+        "current_ratio":current_ratio, 
+        "debt_to_equity":debt_to_equity,
+        "free_cash_flow_per_share":free_cash_flow_per_share, 
+        "earnings_per_share":earnings_per_share,
+        "pe_ratio":pe_ratio,"price_to_book":price_to_book,
+        "price_to_sales":price_to_sales    
     }
 
-    # Create the fundamental analysis message
-    message = HumanMessage(
-        content=json.dumps(message_content),
-        name="fundamentals_agent",
-    )
-
-    # Print the reasoning if the flag is set
-    if show_reasoning:
-        show_agent_reasoning(message_content, "Fundamental Analysis Agent")
-
-    show_workflow_status("Fundamentals Analyst", "completed")
-    return {
-        "messages": [message],
-        "data": {
-            **data,
-            "fundamental_analysis": message_content
-        }
-    }
+    return {'indicators':indicators,'signals':signals,'reasoning':reasoning}

@@ -39,7 +39,6 @@ def market_data_agent(state: AgentState):
 
     # Get all required data
     ticker_list = data["ticker_list"]
-
     # 获取价格数据并验证
     financial_metrics_dict={}
     financial_line_items_dict={}
@@ -55,9 +54,8 @@ def market_data_agent(state: AgentState):
         if not isinstance(prices_df, pd.DataFrame):
             prices_df = pd.DataFrame(
                 columns=['close', 'open', 'high', 'low', 'volume'])
-        prices_dict = prices_df.to_dict(ticker)
-        prices_df_dict[ticker] = prices_dict 
-        
+        prices_df_dict[ticker] = prices_df 
+        logger.info( f"prices df get: {ticker}")
         # 获取财务指标
         try:
             financial_metrics = get_financial_metrics(ticker)

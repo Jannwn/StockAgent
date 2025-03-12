@@ -1,5 +1,6 @@
 from langchain_core.messages import HumanMessage
 from src.agents.state import AgentState, show_agent_reasoning, show_workflow_status
+from src.tools.overall_analyzer import get_bullish_analyze
 import json
 import ast
 
@@ -8,6 +9,8 @@ def researcher_bull_agent(state: AgentState):
     """Analyzes signals from a bullish perspective and generates optimistic investment thesis."""
     show_workflow_status("Bullish Researcher")
     show_reasoning = state["metadata"]["show_reasoning"]
+    end_date = state["data"]["end_date"]
+    stock_list = state["data"]["ticker_list"]
 
     # Fetch messages from analysts
     technical_message = next(
@@ -18,74 +21,21 @@ def researcher_bull_agent(state: AgentState):
         msg for msg in state["messages"] if msg.name == "sentiment_agent")
     valuation_message = next(
         msg for msg in state["messages"] if msg.name == "valuation_agent")
+    
+    reasoning_dict = {
+    "technical": json.loads(technical_message.content), 
+    "fundamentals": json.loads(fundamentals_message.content),
+    "sentiment": json.loads(sentiment_message.content),
+    "valuation": json.loads(valuation_message.content),
+    }
 
-    try:
-        fundamental_signals = json.loads(fundamentals_message.content)
-        technical_signals = json.loads(technical_message.content)
-        sentiment_signals = json.loads(sentiment_message.content)
-        valuation_signals = json.loads(valuation_message.content)
-    except Exception as e:
-        fundamental_signals = ast.literal_eval(fundamentals_message.content)
-        technical_signals = ast.literal_eval(technical_message.content)
-        sentiment_signals = ast.literal_eval(sentiment_message.content)
-        valuation_signals = ast.literal_eval(valuation_message.content)
 
-    # Analyze from bullish perspective
-    bullish_points = []
-    confidence_scores = []
-
-    # Technical Analysis
-    if technical_signals["signal"] == "bullish":
-        bullish_points.append(
-            f"Technical indicators show bullish momentum with {technical_signals['confidence']} confidence")
-        confidence_scores.append(
-            float(str(technical_signals["confidence"]).replace("%", "")) / 100)
-    else:
-        bullish_points.append(
-            "Technical indicators may be conservative, presenting buying opportunities")
-        confidence_scores.append(0.3)
-
-    # Fundamental Analysis
-    if fundamental_signals["signal"] == "bullish":
-        bullish_points.append(
-            f"Strong fundamentals with {fundamental_signals['confidence']} confidence")
-        confidence_scores.append(
-            float(str(fundamental_signals["confidence"]).replace("%", "")) / 100)
-    else:
-        bullish_points.append(
-            "Company fundamentals show potential for improvement")
-        confidence_scores.append(0.3)
-
-    # Sentiment Analysis
-    if sentiment_signals["signal"] == "bullish":
-        bullish_points.append(
-            f"Positive market sentiment with {sentiment_signals['confidence']} confidence")
-        confidence_scores.append(
-            float(str(sentiment_signals["confidence"]).replace("%", "")) / 100)
-    else:
-        bullish_points.append(
-            "Market sentiment may be overly pessimistic, creating value opportunities")
-        confidence_scores.append(0.3)
-
-    # Valuation Analysis
-    if valuation_signals["signal"] == "bullish":
-        bullish_points.append(
-            f"Stock appears undervalued with {valuation_signals['confidence']} confidence")
-        confidence_scores.append(
-            float(str(valuation_signals["confidence"]).replace("%", "")) / 100)
-    else:
-        bullish_points.append(
-            "Current valuation may not fully reflect growth potential")
-        confidence_scores.append(0.3)
-
-    # Calculate overall bullish confidence
-    avg_confidence = sum(confidence_scores) / len(confidence_scores)
+    reasoning=get_bullish_analyze(end_date,stock_list,reasoning_dict)
 
     message_content = {
         "perspective": "bullish",
-        "confidence": avg_confidence,
-        "thesis_points": bullish_points,
-        "reasoning": "Bullish thesis based on comprehensive analysis of technical, fundamental, sentiment, and valuation factors"
+        "reasoning": "Bullish thesis based on comprehensive analysis of technical, "
+        "fundamental, sentiment, and valuation factors, we have the following reasoning: \n\n" + reasoning,
     }
 
     message = HumanMessage(

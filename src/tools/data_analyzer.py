@@ -3,7 +3,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from src.tools.api import get_price_history
 
-
+'''
 def analyze_stock_data(symbol: str, start_date: str = None, end_date: str = None):
     """
     获取股票历史数据,计算技术指标,并保存为CSV文件
@@ -85,3 +85,4 @@ if __name__ == "__main__":
 
     print(f"分析时间范围: {start_date} 至 {end_date}")
     analyze_stock_data(symbol, start_date, end_date)
+'''

@@ -587,7 +587,7 @@ def prices_to_df(prices):
         # 返回一个包含必要列的空DataFrame
         return pd.DataFrame(columns=['close', 'open', 'high', 'low', 'volume'])
 
-
+'''
 def get_price_data(
     ticker: str,
     start_date: str,
@@ -604,3 +604,4 @@ def get_price_data(
         包含价格数据的DataFrame
     """
     return get_price_history(ticker, start_date, end_date)
+'''
