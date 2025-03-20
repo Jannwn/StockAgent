@@ -2,9 +2,148 @@ import os
 import json
 from datetime import datetime
 from src.tools.openrouter_config import get_chat_completion, logger as api_logger
+from src.prompts.agent_config import FUND_SYS_TEXT,FUND_REQ_TEXT
 import time
 import pandas as pd
 import re
+
+
+def fundamental_analyse(metrics):
+    # Initialize signals list for different fundamental aspects
+    signals = []
+    reasoning = {}
+
+    # 1. Profitability Analysis
+    return_on_equity = metrics.get("return_on_equity", 0)
+    net_margin = metrics.get("net_margin", 0)
+    operating_margin = metrics.get("operating_margin", 0)
+
+    thresholds = [
+        (return_on_equity, 0.15),  # Strong ROE above 15%
+        (net_margin, 0.20),  # Healthy profit margins
+        (operating_margin, 0.15)  # Strong operating efficiency
+    ]
+    profitability_score = sum(
+        metric is not None and metric > threshold
+        for metric, threshold in thresholds
+    )
+
+    signals.append('bullish' if profitability_score >=
+                   2 else 'bearish' if profitability_score == 0 else 'neutral')
+    reasoning["profitability_signal"] = {
+        "signal": signals[0],
+        "details": (
+            f"ROE: {metrics.get('return_on_equity', 0):.2%}" if metrics.get(
+                "return_on_equity") is not None else "ROE: N/A"
+        ) + ", " + (
+            f"Net Margin: {metrics.get('net_margin', 0):.2%}" if metrics.get(
+                "net_margin") is not None else "Net Margin: N/A"
+        ) + ", " + (
+            f"Op Margin: {metrics.get('operating_margin', 0):.2%}" if metrics.get(
+                "operating_margin") is not None else "Op Margin: N/A"
+        )
+    }
+
+    # 2. Growth Analysis
+    revenue_growth = metrics.get("revenue_growth", 0)
+    earnings_growth = metrics.get("earnings_growth", 0)
+    book_value_growth = metrics.get("book_value_growth", 0)
+
+    thresholds = [
+        (revenue_growth, 0.10),  # 10% revenue growth
+        (earnings_growth, 0.10),  # 10% earnings growth
+        (book_value_growth, 0.10)  # 10% book value growth
+    ]
+    growth_score = sum(
+        metric is not None and metric > threshold
+        for metric, threshold in thresholds
+    )
+
+    signals.append('bullish' if growth_score >=
+                   2 else 'bearish' if growth_score == 0 else 'neutral')
+    reasoning["growth_signal"] = {
+        "signal": signals[1],
+        "details": (
+            f"Revenue Growth: {metrics.get('revenue_growth', 0):.2%}" if metrics.get(
+                "revenue_growth") is not None else "Revenue Growth: N/A"
+        ) + ", " + (
+            f"Earnings Growth: {metrics.get('earnings_growth', 0):.2%}" if metrics.get(
+                "earnings_growth") is not None else "Earnings Growth: N/A"
+        )
+    }
+
+    # 3. Financial Health
+    current_ratio = metrics.get("current_ratio", 0)
+    debt_to_equity = metrics.get("debt_to_equity", 0)
+    free_cash_flow_per_share = metrics.get("free_cash_flow_per_share", 0)
+    earnings_per_share = metrics.get("earnings_per_share", 0)
+
+    health_score = 0
+    if current_ratio and current_ratio > 1.5:  # Strong liquidity
+        health_score += 1
+    if debt_to_equity and debt_to_equity < 0.5:  # Conservative debt levels
+        health_score += 1
+    if (free_cash_flow_per_share and earnings_per_share and
+            free_cash_flow_per_share > earnings_per_share * 0.8):  # Strong FCF conversion
+        health_score += 1
+
+    signals.append('bullish' if health_score >=
+                   2 else 'bearish' if health_score == 0 else 'neutral')
+    reasoning["financial_health_signal"] = {
+        "signal": signals[2],
+        "details": (
+            f"Current Ratio: {metrics.get('current_ratio', 0):.2f}" if metrics.get(
+                "current_ratio") is not None else "Current Ratio: N/A"
+        ) + ", " + (
+            f"D/E: {metrics.get('debt_to_equity', 0):.2f}" if metrics.get(
+                "debt_to_equity") is not None else "D/E: N/A"
+        )
+    }
+
+    # 4. Price to X ratios
+    pe_ratio = metrics.get("pe_ratio", 0)
+    price_to_book = metrics.get("price_to_book", 0)
+    price_to_sales = metrics.get("price_to_sales", 0)
+
+    thresholds = [
+        (pe_ratio, 25),  # Reasonable P/E ratio
+        (price_to_book, 3),  # Reasonable P/B ratio
+        (price_to_sales, 5)  # Reasonable P/S ratio
+    ]
+    price_ratio_score = sum(
+        metric is not None and metric < threshold
+        for metric, threshold in thresholds
+    )
+
+    signals.append('bullish' if price_ratio_score >=
+                   2 else 'bearish' if price_ratio_score == 0 else 'neutral')
+    reasoning["price_ratios_signal"] = {
+        "signal": signals[3],
+        "details": (
+            f"P/E: {pe_ratio:.2f}" if pe_ratio else "P/E: N/A"
+        ) + ", " + (
+            f"P/B: {price_to_book:.2f}" if price_to_book else "P/B: N/A"
+        ) + ", " + (
+            f"P/S: {price_to_sales:.2f}" if price_to_sales else "P/S: N/A"
+        )
+    }
+
+    indicators = {
+        "Return on Equity (ROE)":return_on_equity, 
+        "net_margin":net_margin, 
+        "operating_margin":operating_margin,
+        "revenue_growth":revenue_growth, 
+        "earnings_growth":earnings_growth, 
+        "book_value_growth":book_value_growth,
+        "current_ratio":current_ratio, 
+        "debt_to_equity":debt_to_equity,
+        "free_cash_flow_per_share":free_cash_flow_per_share, 
+        "earnings_per_share":earnings_per_share,
+        "pe_ratio":pe_ratio,"price_to_book":price_to_book,
+        "price_to_sales":price_to_sales    
+    }
+
+    return {'indicators':indicators,'signals':signals,'reasoning':reasoning}
 
 def get_fundmt_analyze(end_date:str,stock_fundmt_dict: dict,signal_text: str) -> float:
     """
@@ -24,40 +163,12 @@ def get_fundmt_analyze(end_date:str,stock_fundmt_dict: dict,signal_text: str) ->
     # 准备系统消息
     system_message = {
         "role": "system",
-        "content": """
-        你是一个专业的股票投资者,尤其擅长对A股市场股票相关基本面指标进行分析.
-        你需要分析一组股票的基本面指标,并针对每个股票给出介于-1到1之间的分数.
-        我希望获得如下形式的回答:
-        -1表示极其积极（例如: ROE、净利润率、毛利率等指标稳定在高位）
-        -0.5到0.9表示积极（例如: 指标有所增长，且高于行业平均水平）
-        -0表示中性（例如: 指标波动不大，未显示明显趋势）
-        --0.5到-0.9表示消极（例如: 指标有所下降，且低于行业平均水平）
-        --1表示极其消极（例如: 指标持续恶化，财务健康状况堪忧）
-
-        分析时重点关注:
-        1. 相对比较法:
-            将目标公司的基本面指标与同行业其他公司的相应指标进行比较，以评估其相对表现。关注行业平均水平和领先公司的数据，识别目标公司的优势和劣势。
-        2. 历史趋势分析:
-        分析公司的历史财务数据，识别其各项指标的趋势变化。关注指标的稳定性和持续性，判断公司是否具备长期增长潜力。
-        3. 因果关系分析:
-        考虑不同财务指标之间的因果关系，例如，收入增长对净利润的影响。识别关键驱动因素，分析其对公司整体财务健康的影响。
-        4. 情景分析:
-        设定不同的市场情景（如经济衰退、行业增长等），评估公司在各种情况下的表现。通过模拟不同假设，判断公司的抗风险能力和适应性。
-        5. 定性分析:
-        除了定量指标外，考虑公司的管理团队、行业地位、市场竞争力等定性因素。评估公司的战略规划、创新能力和品牌价值等非财务因素对未来表现的影响。
-
-        避免模糊回答,结合基本面指标的实际含义,确保你的分析是合理的,且数据一定要是来源于提供的真实数据.
-        """
+        "content": FUND_SYS_TEXT
     }
 
     user_message = {
         "role": "user", #prompt
-        "content": f"""
-        分析以下A股上市公司{stock_list}相关基本面指标,对比并计算每只的股票的未来价格:\n\n{stock_fundmt_dict}\n\n
-        使用股票基本面分析、财务分析、交易理论等专业知识,避免模糊的回答，用词专业.
-        首先返回一列对基本面指标综合打分的数字,范围是-1到1,越接近1证明上涨概率越大,记作'结果:[股票列表:分数]',例如'结果:[股票代码1:0.8,股票代码2:-0.5]'.
-        之后,结合你所获得的基本面指标和相关解释,用1000字分点列出做出该判断的理由,要求有理有据且表述明确,不要用模糊的词汇,
-        做出你觉得最可能的判断记作'原因:...分析过程'.
+        "content": f"""提供股票列表{stock_list},股票基本面信息\n\n{stock_fundmt_dict}\n\n,{FUND_REQ_TEXT}
         """
     }
 
@@ -79,37 +190,3 @@ def get_fundmt_analyze(end_date:str,stock_fundmt_dict: dict,signal_text: str) ->
     except Exception as e:
         print(f"Error analyzing fundamental: {e}")
         return 0.0  # 出错时返回中性分数
-    
-
-'''
-
-match = re.search(r'结果：\s*\[(.*?)\]', content_value)
-            match_r = re.search(r'原因：\s*(.*)', content_value)
-            if match:
-                # 提取匹配到的数字字符串
-                fundamental_str = match.group(1)
-                fundamental_reason=match_r.group(1)
-                try:
-                    fundamental_score_list = [float(num.strip()) for num in fundamental_str]
-                except ValueError:
-                    print("错误:无法将字符串转换为数字.字符串格式可能不正确.")
-            else:
-                print("错误:未找到 '结果' 相关的内容.")   
-        except ValueError as e:
-            print(f"Error parsing fundamental score: {e}")
-            print(f"Raw result: {result}")
-            return 0.0
-
-        # 确保分数在-1到1之间
-        for sent in fundamental_score_list:
-            sent = max(-1.0, min(1.0, sent))
-
-        # 缓存结果
-        cache[stock_list] = fundamental_score_list,fundamental_reason
-        try:
-            with open(cache_file, 'w', encoding='utf-8') as f:
-                json.dump(cache, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Error writing cache: {e}")
-
-'''

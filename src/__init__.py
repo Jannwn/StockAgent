@@ -1,3 +1,0 @@
-"""
-AI Hedge Fund package
-"""

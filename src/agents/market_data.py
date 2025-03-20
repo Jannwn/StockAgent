@@ -1,31 +1,27 @@
 from langchain_core.messages import HumanMessage
 from src.tools.openrouter_config import get_chat_completion
-from src.agents.state import AgentState, show_agent_reasoning, show_workflow_status
+from src.agents.state import AgentState
 from src.tools.api import get_financial_metrics, get_financial_statements, get_market_data, get_price_history
 from src.utils.logging_config import setup_logger
-
+from typing import Dict
 from datetime import datetime, timedelta
 import pandas as pd
 
 # 设置日志记录
 logger = setup_logger('market_data_agent')
 
-
-def market_data_agent(state: AgentState):
+def market_data_agent(messages,data)->Dict:
     """Responsible for gathering and preprocessing market data"""
-    show_workflow_status("Market Data Agent")
-    show_reasoning = state["metadata"]["show_reasoning"]
-
-    messages = state["messages"]
-    data = state["data"]
-
     # Set default dates
     current_date = datetime.now()
     yesterday = current_date - timedelta(days=1)
     end_date = data["end_date"] or yesterday.strftime('%Y-%m-%d')
 
     # Ensure end_date is not in the future
-    end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+    if isinstance(end_date, str):
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+    elif isinstance(end_date, datetime):
+        end_date_obj = end_date
     if end_date_obj > yesterday:
         end_date = yesterday.strftime('%Y-%m-%d')
         end_date_obj = yesterday
@@ -93,3 +89,4 @@ def market_data_agent(state: AgentState):
             "market_data": market_data_dict,
         }
     }
+

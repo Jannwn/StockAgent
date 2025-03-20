@@ -19,7 +19,8 @@ class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
     data: Annotated[Dict[str, Any], merge_dicts]
     metadata: Annotated[Dict[str, Any], merge_dicts]
-
+    
+'''
 def show_workflow_status(agent_name: str, status: str = "processing"):
     """Display agent workflow status in a clean format.
 
@@ -63,3 +64,7 @@ def show_agent_reasoning(output, agent_name):
         except json.JSONDecodeError:
             # Fallback to original string if not valid JSON
             logger.info(output)
+
+            
+            
+'''            

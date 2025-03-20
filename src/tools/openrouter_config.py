@@ -39,13 +39,13 @@ else:
     logger.warning(f"{ERROR_ICON} 未找到环境变量文件: {env_path}")
 
 # 验证环境变量
-api_key = os.getenv("GEMINI_API_KEY")
-model = os.getenv("GEMINI_MODEL")
-base_url = os.getenv("GEMINI_BASE_URL")
+api_key = os.getenv("GPT_API_KEY")
+model = os.getenv("GPT_MODEL")
+base_url = os.getenv("GPT_BASE_URL")
 
 if not api_key:
-    logger.error(f"{ERROR_ICON} 未找到 GEMINI_API_KEY 环境变量")
-    raise ValueError("GEMINI_API_KEY not found in environment variables")
+    logger.error(f"{ERROR_ICON} 未找到 GPT_API_KEY 环境变量")
+    raise ValueError("GPT_API_KEY not found in environment variables")
 if not model:
     model = "gemini-1.5-flash"
     logger.info(f"{WAIT_ICON} 使用默认模型: {model}")
@@ -115,7 +115,7 @@ def get_chat_completion(messages, model=None, max_retries=2, initial_retry_delay
     """Gets chat completion results, including retry logic."""
     try:
         if model is None:
-            model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+            model = os.getenv("GPT_MODEL", "gemini-1.5-flash")
 
         logger.info(f"{WAIT_ICON} 使用模型: {model}")
         logger.debug(f"消息内容: {messages}")

@@ -6,6 +6,7 @@ import akshare as ak
 import requests
 from bs4 import BeautifulSoup
 from src.tools.openrouter_config import get_chat_completion, logger as api_logger
+from src.prompts.agent_config import SENT_SYS_TEXT,SENT_REQ_TEXT
 import time
 import pandas as pd
 import re
@@ -145,7 +146,6 @@ def get_stock_news(symbol: str, max_news: int = 10) -> list:
         print(f"获取新闻数据时出错: {e}")
         return []
 
-
 def get_news_sentiment(symbol_list,news_dict: dict, num_of_news: int = 10) -> float:
     """分析新闻情感得分
 
@@ -164,7 +164,6 @@ def get_news_sentiment(symbol_list,news_dict: dict, num_of_news: int = 10) -> fl
     # project_root = os.path.dirname(os.path.dirname(
     #     os.path.dirname(os.path.abspath(__file__))))
 
-    # 检查是否有缓存的情感分析结果
     # 检查是否有缓存的情感分析结果
     cache_file = "src/data/sentiment_cache.json"
     os.makedirs(os.path.dirname(cache_file), exist_ok=True)
@@ -196,29 +195,7 @@ def get_news_sentiment(symbol_list,news_dict: dict, num_of_news: int = 10) -> fl
     # 准备系统消息
     system_message = {
         "role": "system",
-        "content": """你是一个专业的A股市场分析师,擅长解读新闻对股票走势的影响.你需要分析关于一组股票的新闻的情感倾向,并针对每个股票给出介于-1到1之间的分数:
-        - 1表示极其积极(例如:重大利好消息、超预期业绩、行业政策支持)
-        - 0.5到0.9表示积极(例如:业绩增长、新项目落地、获得订单)
-        - 0.1到0.4表示轻微积极(例如:小额合同签订、日常经营正常)
-        - 0表示中性(例如:日常公告、人事变动、无重大影响的新闻)
-        - -0.1到-0.4表示轻微消极(例如:小额诉讼、非核心业务亏损)
-        - -0.5到-0.9表示消极(例如:业绩下滑、重要客户流失、行业政策收紧)
-        - -1表示极其消极(例如:重大违规、核心业务严重亏损、被监管处罚)
-
-        分析时重点关注:
-        1. 业绩相关:财报、业绩预告、营收利润等
-        2. 政策影响:行业政策、监管政策、地方政策等
-        3. 市场表现:市场份额、竞争态势、商业模式等
-        4. 资本运作:并购重组、股权激励、定增配股等
-        5. 风险事件:诉讼仲裁、处罚、债务等
-        6. 行业地位:技术创新、专利、市占率等
-        7. 舆论环境:媒体评价、社会影响等
-
-        请确保分析:
-        1. 新闻的真实性和可靠性
-        2. 新闻的时效性和影响范围
-        3. 对公司基本面的实际影响
-        4. A股市场的特殊反应规律"""
+        "content": SENT_SYS_TEXT
     }
 
     # 准备新闻内容
@@ -235,12 +212,8 @@ def get_news_sentiment(symbol_list,news_dict: dict, num_of_news: int = 10) -> fl
     user_message = {
         "role": "user", #prompt
         "content": f"""
-        分析以下A股上市公司{symbol_list}相关新闻,对比并计算每只的股票的情感倾向:\n\n{news_content}\n\n
-        使用股票情绪、交易理论等专业知识,避免模糊的回答，用词专业.
-        首先返回一列对情感倾向打分的数字,范围是-1到1,越接近1证明情感越积极,记作"情感:[,,,]".
-        之后,结合你所获得的新闻报道,用1000字分点列出做出该判断的理由,要求有理有据且表述明确,不要用模糊的词汇,
-        做出你觉得最可能的判断记作"原因:".
-        """
+        分析以下A股上市公司{symbol_list}相关新闻:\n\n{news_content}\n\n
+        {SENT_REQ_TEXT}"""
     }
 
     try:
