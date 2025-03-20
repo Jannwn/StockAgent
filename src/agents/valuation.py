@@ -2,22 +2,8 @@ from langchain_core.messages import HumanMessage
 from src.agents.state import AgentState, show_agent_reasoning, show_workflow_status
 import json
 from src.tools.valuation_analyzer import get_value_analyze
+from src.prompts.signal_config import VALUE_SIGNAL_TEXT
 
-SIGNAL_TEXT='''
-1. valuation_gap:含义: 反映公司内在价值与市场资本化的差距.
-判断标准:> 0.10: 表示公司被低估10%以上,可能是买入信号.< -0.20: 表示公司被高估20%以上,可能是卖出信号.
-在 -0.20 到 0.10 之间,表示市场对公司的估值合理.
-2.dcf_gap:含义: 基于折现现金流法(DCF)计算的内在价值与市场资本化的差距.
-判断标准:> 0.10: 表示内在价值高于市场资本化10%以上,可能是买入信号.< -0.20: 表示内在价值低于市场资本化20%以上,可能是卖出信号.
-在 -0.20 到 0.10 之间,表示市场对公司的估值合理.
-3.owner_earnings_gap:
-含义: 基于业主收益法计算的内在价值与市场资本化的差距.
-判断标准:> 0.10: 表示业主收益高于市场资本化10%以上,可能是买入信号.< -0.20: 表示业主收益低于市场资本化20%以上,可能是卖出信号.
-在 -0.20 到 0.10 之间,表示市场对公司的估值合理.
-4. working_capital_change：反映当前财务报表与之前财务报表之间的营运资本变化.营运资本是公司用于日常运营的资金,计算方式为流动资产减去流动负债.正值表示公司在流动资产方面的改善,可能意味着公司有更好的短期财务健康状况.
-5.owner_earnings_value:基于业主收益法（Buffett Method）计算的公司内在价值.业主收益是指公司在扣除必要支出后,能够为股东创造的现金流.这个值可以帮助投资者评估公司在长期内的盈利能力和价值.
-6.dcf_value:基于折现现金流（Discounted Cash Flow, DCF）模型计算的公司内在价值.DCF 方法通过预测未来现金流并将其折现到现值,来评估公司的真实价值.这个值是判断公司是否被市场低估或高估的重要依据.
-'''
 
 def valuation_agent(state: AgentState):
     """Responsible for valuation analysis"""
@@ -35,7 +21,7 @@ def valuation_agent(state: AgentState):
         results[ticker]=valuation_analyse(metrics,current_financial_line_item,previous_financial_line_item,market_cap)
     
     message_content = {"results": results}
-    message_text=get_value_analyze(end_date,results,SIGNAL_TEXT)
+    message_text=get_value_analyze(end_date,results,VALUE_SIGNAL_TEXT)
     message = HumanMessage(
         content=json.dumps(message_text),
         name="valuation_agent",

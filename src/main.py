@@ -18,7 +18,7 @@ import pandas as pd
 #poetry run python -m src.main --ticker_list "[002155,600988,600489,600547,000975,300139]" --show-reasoning
 # poetry run python -m src.main --ticker_list "[000001,300059,002261]" --show-reasoning  
 #poetry run python -m src.main --ticker_list "[601899,603993,600362,601168,000630,603979,000878,601212,002203,000737,002171,601609,600490]" --show-reasoning
-#["601899","603993","600362","601168","000630","603979","000878","601212","002203","000737","002171","601609","600490"]
+
 import sys
 import argparse
 import ast

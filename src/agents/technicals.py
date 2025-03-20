@@ -8,53 +8,10 @@ from src.tools.tech_calculator import calculate_trend_signals, calculate_mean_re
 from src.tools.tech_calculator import calculate_volatility_signals, calculate_stat_arb_signals, weighted_signal_combination,normalize_pandas
 from src.tools.tech_calculator import cal_signals
 from src.tools.tech_analyzer import get_tech_analyze
-import json
+from src.prompts.signal_config import TECH_SIGNAL_TEXT,TECH_STRATEGY_TEXT
 
 from src.tools.api import prices_to_df
-
-## signal explaination
-
-TEXT_SIGNAL=""" 
-我们认为MACD线与信号线的交叉是一个重要的信号,可以用于判断买入或卖出的时机.
-当MACD线从下方穿过信号线时,我们认为这是一个买入信号,表示股价可能会上涨.
-当MACD线从上方穿过信号线时,我们认为这是一个卖出信号,表示股价可能会下跌.
-同理,我们计算RSI的数值,当RSI小于30时,我们认为股价被低估,是一个买入信号.
-当RSI大于70时,我们认为股价被高估,是一个卖出信号.
-对于布林带指标,我们认为股价突破上轨线是一个卖出信号,突破下轨线是一个买入信号.
-当股价在布林带之间时,我们认为是一个中性信号.
-最后是OBV指标,我们计算OBV的斜率,当斜率为正时,我们认为是一个买入信号.
-当斜率为负时,我们认为是一个卖出信号.
-至于价格下跌信号,我们设置了两个阈值,当价格下跌超过5%且RSI小于40时,我们认为是一个强烈的买入信号.
-当价格下跌超过3%且RSI小于45时,我们认为是一个中等的买入信号.
-将这些信号综合起来,得出最终的交易信号."""
-
-TEXT_STRATEGY="""
-1. calculate_trend_signals策略是一种 多时间框架趋势跟踪策略,通过结合 8日、21日和55日 EMA 判断短期和中期趋势方向,并利用 14日 ADX 评估趋势强度,生成高置信度的交易信号.策略的核心判断标准如下:
-看涨信号:EMA_8 > EMA_21 且 EMA_21 > EMA_55,同时 ADX 值较高,表明市场处于强势上涨趋势.
-看跌信号:EMA_8 < EMA_21 且 EMA_21 < EMA_55,同时 ADX 值较高,表明市场处于强势下跌趋势.
-中性信号:短期和中期趋势不一致,或 ADX 值较低,表明市场处于震荡或无趋势状态.策略通过多时间框架和趋势强度的综合分析,有效捕捉市场趋势并动态调整信号置信度
-
-2. 均值回归策略(Mean Reversion Strategy)通过 Z-Score 和 布林带(Bollinger Bands) 识别价格偏离均值的极端情况,并结合 RSI 指标确认超买超卖状态,生成均值回归信号.策略的核心判断标准如下:
-
-看涨信号:Z-Score 低于 -2 且价格接近布林带下轨(price_vs_bb < 0.2),表明价格处于超卖状态,可能反弹.
-看跌信号:Z-Score 高于 2 且价格接近布林带上轨(price_vs_bb > 0.8),表明价格处于超买状态,可能回调.
-中性信号:价格未达到极端水平,市场处于震荡状态.策略通过 Z-Score 和布林带的结合,有效捕捉价格回归均值的交易机会.
-适用于震荡市场,捕捉价格回归均值的交易机会.
-
-3. 动量策略(Momentum Strategy)通过 多时间框架动量(1个月、3个月、6个月)和 成交量动量 确认市场趋势的持续性,生成动量信号.策略的核心判断标准如下:
-
-看涨信号:动量评分(momentum_score)大于 0.05 且成交量动量大于 1,表明市场处于强势上涨趋势.
-看跌信号:动量评分小于 -0.05 且成交量动量大于 1,表明市场处于强势下跌趋势.
-中性信号:动量评分和成交量动量未达到阈值,市场趋势不明确.策略通过多时间框架动量和成交量的结合,有效捕捉趋势延续的交易机会.
-适用于趋势市场,捕捉趋势延续的交易机会.两者结合可适应不同的市场环境,提升策略的稳健性
-
-4. 统计套利策略(Statistical Arbitrage Strategy)通过 Hurst 指数、偏度(Skewness) 和 峰度(Kurtosis) 分析价格分布特征,生成统计套利信号.策略的核心判断标准如下:
-
-看涨信号:Hurst 指数低于 0.4(表明价格具有均值回归特性)且偏度大于 1(价格分布右偏),表明市场可能反弹.
-看跌信号:Hurst 指数低于 0.4 且偏度小于 -1(价格分布左偏),表明市场可能回调.
-中性信号:Hurst 指数高于 0.4 或偏度未达到阈值,市场无明显统计套利机会.策略通过价格分布特征,捕捉均值回归的交易机会.
-
-"""
+import json
 
 ##### Technical Analyst #####
 def technical_analyst_agent(state: AgentState):
@@ -87,7 +44,7 @@ def technical_analyst_agent(state: AgentState):
     for ticker,prices in prices_dict.items():
         analysis_report = calculate_signals(prices)
         report_dict[ticker]=analysis_report
-    message_text=get_tech_analyze(end_date,analysis_report,TEXT_SIGNAL,TEXT_STRATEGY)
+    message_text=get_tech_analyze(end_date,analysis_report,TECH_SIGNAL_TEXT,TECH_STRATEGY_TEXT)
     message = HumanMessage(
         content=json.dumps(message_text),
         name="technical_analyst_agent",
@@ -182,7 +139,7 @@ def calculate_signals(prices: Dict) -> Dict:
             "RSI": reasoning["RSI"],
             "Bollinger": reasoning["Bollinger"],
             "OBV": reasoning["OBV"],
-            "signal_meaning":TEXT_SIGNAL
+            "signal_meaning":TECH_SIGNAL_TEXT
         }
     }
 
