@@ -39,7 +39,7 @@ def get_stock_news(symbol: str, max_news: int = 10) -> list:
     # 构建新闻文件路径
     # project_root = os.path.dirname(os.path.dirname(
     #     os.path.dirname(os.path.abspath(__file__))))
-    news_dir = os.path.join("src", "data", "stock_news")
+    news_dir = os.path.join("data", "stock_news")
     print(f"新闻保存目录: {news_dir}")
 
     # 确保目录存在
